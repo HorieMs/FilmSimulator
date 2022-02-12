@@ -50,9 +50,9 @@ def get_nk_list():
     
     cwd=os.getcwd()
     st.write(cwd)
-    
 
-    files=os.listdir(".\\")
+
+    files=os.listdir(".")
     st.write(files)
 
     
