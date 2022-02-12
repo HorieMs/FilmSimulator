@@ -29,7 +29,7 @@ def convert_df(df):
      return df.to_csv().encode('utf-8')
 
 # @st.cache
-def get_nk_list(nk_fpath=".\\data\\nk\\"):
+def get_nk_list():
     """
     フォルダ内のnkファイル名一覧の取得
     Parameters
@@ -44,7 +44,9 @@ def get_nk_list(nk_fpath=".\\data\\nk\\"):
     """
     
     nk_list=[]
-    nk_dirs=nk_fpath+"*.nk"
+    # nk_fpath=".\\data\\nk\\"
+    # nk_dirs=nk_fpath+"*.nk"
+    nk_dirs=".\\data\\nk\\*.nk"
     nk_files=glob.glob(nk_dirs)
  
     for nk_file in nk_files:
