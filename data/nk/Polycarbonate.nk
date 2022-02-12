@@ -1,7 +1,4 @@
 ; Optical constants of (C16H14O3)n (Poly;carbonate, PC)
-; Sultanova et al. 2009: n 0.437-1.05 µm
-;   https://refractiveindex.info/?shelf=organic&book=polycarbonate&page=Sultanova
-;Wavelength(nm)	n	k
 230.0	1.66	0.0
 449.1	1.61	0.0
 486.0	1.60	0.0

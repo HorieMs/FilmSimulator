@@ -7,7 +7,20 @@ import tmm
 import colour
 import os
 import datetime
+import glob
 
+
+st.set_page_config(
+     page_title="Optical film simulator",
+     page_icon="🌈",
+     layout="wide",
+     initial_sidebar_state="auto",
+     menu_items={
+         'Get Help': 'https://koumyou.org/',
+         'Report a bug': "https://koumyou.org/",
+         'About': "# This is an optical film sumulator app!"
+     }
+ )
 
 wl_min=400.0
 wl_max=800.0
@@ -27,7 +40,7 @@ def convert_df(df):
      # IMPORTANT: Cache the conversion to prevent computation on every rerun
      return df.to_csv().encode('utf-8')
 
-# @st.cache
+@st.cache
 def get_nk_list():
     """
     フォルダ内のnkファイル名一覧の取得
@@ -212,8 +225,10 @@ if value:
     n_env=value
 
 
-st.header('Film stack')
-nlayers=st.number_input('Number of layer',min_value=1,max_value=5,value=nlayers,step=1,format='%d')
+st.header('Interference color of multilayer film')
+
+st.subheader('Film stack')
+nlayers=st.number_input('Number of layer',min_value=1,max_value=100,value=nlayers,step=1,format='%d')
 
 nk_namelist=get_nk_list()
 if len(nk_namelist)<1:
@@ -232,7 +247,7 @@ for num in range(nlayers):
     col1,col2=st.columns((2,1))
     label_layer=order_n(num+1)+' layer'
     with col1:
-        nk_name=st.selectbox(label_layer,nk_namelist,index=nk_idx_film-3*num,key='L'+str(num+1))
+        nk_name=st.selectbox(label_layer,nk_namelist,index=nk_idx_film,key='L'+str(num+1))
         nk_name_list.append(nk_name)
     with col2:
         val=st.number_input('thickness[nm]',min_value=0.1,max_value=1e6,value=100.0,step=0.1,format='%g',key='T'+str(num+1))
@@ -251,6 +266,7 @@ Rs=np.zeros(len(wl_ar),dtype=float)
 
 Rp,Rs=calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle)
 
+st.subheader('Spectrum')
 
 fig=plt.figure()
 if inc_angle<0.01:
@@ -268,7 +284,7 @@ plt.ylabel('Reflectance')
 plt.title(title_msg)
 st.pyplot(fig)
 
-
+st.subheader('Colorimetry')
 
 
 colour_wl_min=380
@@ -354,6 +370,8 @@ now = datetime.datetime.now(JST)
 # YYYYMMDDhhmmss形式に書式化
 d = now.strftime('%Y%m%d%H%M%S')
 fname='data_'+d+'.csv'
+
+st.subheader('Download spectrum and color data')
 
 st.download_button(
      label="Download data as CSV",
