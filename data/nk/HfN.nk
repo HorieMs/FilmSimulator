@@ -1,7 +1,4 @@
 ;HfN : ref p367 [Handbook of Optical Constants of Solids III ]
-;補間方法	(L:直線補間(ﾃﾞﾌｫﾙﾄ), S:スプライン補間, F:コーシーの多項式)
-S
-;波長(nm)	屈折率(n)	吸収係数(k)
 112.7	0.240	1.49
 124.0	0.443	1.92
 137.8	0.870	2.31

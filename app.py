@@ -51,6 +51,8 @@ def get_nk_list(nk_fpath=".\\data\\nk\\"):
         basename = os.path.splitext(os.path.basename(nk_file))[0]
         nk_list.append(basename)    
     
+    if len(nk_list)<1:
+        st.error('not find nk data in '+nk_dirs)
     
     return nk_list
 
@@ -194,6 +196,9 @@ st.header('Film stack')
 nlayers=st.number_input('Number of layer',min_value=1,max_value=5,value=nlayers,step=1,format='%d')
 
 nk_namelist=get_nk_list()
+if len(nk_namelist)<1:
+    st.error('nk list not find')
+
 nk_idx_subst=nk_namelist.index('Silicon')
 nk_idx_film=nk_namelist.index('SiO2')
 # print('nk list',nk_namelist)

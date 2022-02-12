@@ -1,5 +1,4 @@
 ;Molybdenum ; ref p306 [Handbook of Optical Constants of Solids I]
-;Wavelength(nm)	n	k
 155.0	0.685	1.73
 156.9	0.697	1.77
 159.0	0.711	1.81

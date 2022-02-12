@@ -1,7 +1,4 @@
 ; From SOPRA S.A. http://www.sopra-sa.com/indices.htm
-; Filename    Symbol               Range (nm)     Description
-; SI3N4       Si3N4               154     1239    Silicon Nitride
-; lambda/nm       n         k
 154.98	2.65100000	0.96200000
 155.96	2.66391200	0.94430400
 156.94	2.67645600	0.92587200
