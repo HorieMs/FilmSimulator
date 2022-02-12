@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import tmm
 import colour
 import os
-import glob
 import datetime
 
 
@@ -46,8 +45,11 @@ def get_nk_list():
     nk_list=[]
     # nk_fpath=".\\data\\nk\\"
     # nk_dirs=nk_fpath+"*.nk"
-    nk_dirs="data\\nk\\*.nk"
-    nk_files=glob.glob(nk_dirs)
+    #nk_dirs="data\\nk\\*.nk"
+    #nk_files=glob.glob(nk_dirs)
+    nk_dirs="data\\nk"
+    files=os.listdir(nk_dirs)
+    nk_files=[f for f in files if os.path.isfile(os.path.join(nk_dirs, f))]
  
     for nk_file in nk_files:
         basename = os.path.splitext(os.path.basename(nk_file))[0]
