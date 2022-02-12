@@ -59,8 +59,9 @@ def get_nk_list():
 
 
     
-    nk_dirs="data\\nk"
-    files=os.listdir(nk_dirs)
+    files=os.listdir("data\\nk")
+    st.write(files)
+
     nk_files=[f for f in files if os.path.isfile(os.path.join(nk_dirs, f))]
  
     for nk_file in nk_files:
