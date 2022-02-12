@@ -84,7 +84,7 @@ def get_nk_list():
         files_nk=glob.glob("data\\nk")
         st.error('dir of data_nk =',files_nk)
 
-    
+    nk_list.sort()
     return nk_list
 
 def calc_nk_list(nk_fn_list,wl):
