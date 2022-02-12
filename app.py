@@ -54,6 +54,9 @@ def get_nk_list():
 
     files=os.listdir(".")
     st.write(files)
+    files=os.listdir(".\\data")
+    st.write(files)
+
 
     
     nk_dirs=".\\data\\nk"
