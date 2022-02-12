@@ -55,6 +55,11 @@ def get_nk_list():
     
     if len(nk_list)<1:
         st.error('not find nk data in '+nk_dirs)
+        files_data=glob.glob("data")
+        st.error('dir of data =',files_data)
+        files_nk=glob.glob("data\\nk")
+        st.error('dir of data_nk =',files_nk)
+
     
     return nk_list
 
