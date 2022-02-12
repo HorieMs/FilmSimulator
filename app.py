@@ -127,7 +127,7 @@ def make_nk_fn(nk_name_list=[]):
             fname_path=nk_path+nk_name+'.nk'
             if os.path.isfile(fname_path):
                 nk_mat=np.loadtxt(fname_path,comments=';',encoding="utf-8_sig")
-                st.write(nk_mat)
+                #st.write(nk_mat)
                 w_mat=nk_mat[:,0]
                 n_mat=np.array(nk_mat[:,1]+nk_mat[:,2]*1j)    
                 nk_fn= interp1d(w_mat,n_mat, kind='quadratic')
