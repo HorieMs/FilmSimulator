@@ -50,17 +50,13 @@ def get_nk_list():
     
     # cwd=os.getcwd()
     # st.write(cwd)
-
-
     # files=os.listdir(".")
     # st.write(files)
     # files=os.listdir("data")
     # st.write(files)
-
-
     nk_dirs="data//nk"
     files=os.listdir(nk_dirs)
-    st.write(files)
+    #st.write(files)
 
     nk_files=[f for f in files if os.path.isfile(os.path.join(nk_dirs, f))]
  
@@ -130,6 +126,7 @@ def make_nk_fn(nk_name_list=[]):
             fname_path=nk_path+nk_name+'.nk'
             if os.path.isfile(fname_path):
                 nk_mat=np.loadtxt(fname_path,comments=';',encoding="utf-8_sig")
+                st.write(nk_mat)
                 w_mat=nk_mat[:,0]
                 n_mat=np.array(nk_mat[:,1]+nk_mat[:,2]*1j)    
                 nk_fn= interp1d(w_mat,n_mat, kind='quadratic')
