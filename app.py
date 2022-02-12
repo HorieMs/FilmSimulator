@@ -46,7 +46,7 @@ def get_nk_list():
     nk_list=[]
     # nk_fpath=".\\data\\nk\\"
     # nk_dirs=nk_fpath+"*.nk"
-    nk_dirs=".\\data\\nk\\*.nk"
+    nk_dirs="data\\nk\\*.nk"
     nk_files=glob.glob(nk_dirs)
  
     for nk_file in nk_files:
