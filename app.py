@@ -250,7 +250,7 @@ for num in range(nlayers):
         nk_name=st.selectbox(label_layer,nk_namelist,index=nk_idx_film,key='L'+str(num+1))
         nk_name_list.append(nk_name)
     with col2:
-        val=st.number_input('thickness[nm]',min_value=0.1,max_value=1e6,value=100.0,step=0.1,format='%g',key='T'+str(num+1))
+        val=st.number_input('thickness[nm]',min_value=0.0,max_value=1e6,value=100.0,step=0.1,format='%g',key='T'+str(num+1))
         d_list.append(val)
 
 nk_name=st.selectbox('substrate',nk_namelist,index=nk_idx_subst,key='L0')
