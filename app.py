@@ -143,7 +143,8 @@ def make_nk_fn(nk_name_list=[]):
                 #st.write(nk_mat)
                 w_mat=nk_mat[:,0]
                 n_mat=np.array(nk_mat[:,1]+nk_mat[:,2]*1j)    
-                nk_fn= interp1d(w_mat,n_mat, kind='quadratic')
+                #nk_fn= interp1d(w_mat,n_mat, kind='quadratic', fill_value='extrapolate')
+                nk_fn= interp1d(w_mat,n_mat, kind='linear', fill_value='extrapolate')
             else:
                 try:
                     nk=complex(nk_name)
@@ -203,11 +204,15 @@ st.sidebar.header('Light parameters')
 
 
 inc_angle=st.sidebar.number_input('Incident angle [deg]',min_value=0.0,max_value=89.0,value=0.0,step=0.1,format='%3.1f')
-wl_option=st.sidebar.selectbox('Wavelength(nm)',('Visible','General'))
+wl_option=st.sidebar.selectbox('Wavelength(nm)',('Visible','All'))
 if wl_option=='Visible':
     wl_min=380.0
     wl_max=780.0
     wl_pitch=5.0
+elif wl_option=='All':
+    wl_min=200.0
+    wl_max=1000.0
+    wl_pitch=1.0    
 
 wl_range=st.sidebar.slider('Wavelength range [nm]',min_value=200.0,max_value=1000.0,value=(wl_min,wl_max),step=1.0,format='%.0f')
 if wl_range:
