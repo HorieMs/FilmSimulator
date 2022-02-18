@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import tmm
 import colour
 import os
@@ -56,21 +56,8 @@ def get_nk_list():
     """
     
     nk_list=[]
-    # nk_fpath=".\\data\\nk\\"
-    # nk_dirs=nk_fpath+"*.nk"
-    #nk_dirs="data\\nk\\*.nk"
-    #nk_files=glob.glob(nk_dirs)
-    
-    # cwd=os.getcwd()
-    # st.write(cwd)
-    # files=os.listdir(".")
-    # st.write(files)
-    # files=os.listdir("data")
-    # st.write(files)
     nk_dirs="data//nk"
     files=os.listdir(nk_dirs)
-    #st.write(files)
-
     nk_files=[f for f in files if os.path.isfile(os.path.join(nk_dirs, f))]
  
     for nk_file in nk_files:
@@ -97,21 +84,26 @@ def calc_nk_list(nk_fn_list,wl):
         光学定数の関数リスト.
     wl : float
         波長(nm).
-
     Returns
     -------
     nk_list : array of complex
-        各層の工学定数.
+        各層の光学定数.
 
     """
     
     nk_list=[]
     for nk in nk_fn_list:
         nk_list.append(nk(wl))
+    # nk_list=[]
+    # n=len(nk_fn_list)
+    # for k in range(n):
+    #     val=nk_fn_list[k](wl)
+    #     nk_list.append(val)
+    #print(nk_list)
     return nk_list
 
 
-# @st.cache
+
 def make_nk_fn(nk_name_list=[]):
     """
     各層の光学定数の関数を返す
@@ -131,11 +123,13 @@ def make_nk_fn(nk_name_list=[]):
     nk_fn_list=[]
     for idx,nk_name in enumerate(nk_name_list):
         if isinstance(nk_name,complex) or isinstance(nk_name,float) or isinstance(nk_name,int):
-            nk=nk_name
+            nk=complex(nk_name)
             nk_fn = lambda wavelength: nk
+            #print(f'Idx={idx},Instance==numeric, val={nk}')
         elif isinstance(nk_name,str) and str(nk_name).isnumeric():
             nk=float(nk_name)
             nk_fn = lambda wavelength: nk
+            #print(f'Idx={idx},Instance==str, val={nk}')
         else:
             fname_path=nk_path+nk_name+'.nk'
             if os.path.isfile(fname_path):
@@ -145,15 +139,18 @@ def make_nk_fn(nk_name_list=[]):
                 n_mat=np.array(nk_mat[:,1]+nk_mat[:,2]*1j)    
                 #nk_fn= interp1d(w_mat,n_mat, kind='quadratic', fill_value='extrapolate')
                 nk_fn= interp1d(w_mat,n_mat, kind='linear', fill_value='extrapolate')
+                #print(f'Idx={idx},Instance=={fname_path} exist')
             else:
                 try:
                     nk=complex(nk_name)
                 except ValueError:
                     nk=complex(1.0)
+                #print(f'Idx={idx},Instance=={fname_path} not exist, nk={nk}')
                 nk_fn = lambda wavelength: nk
         
         nk_fn_list.append(nk_fn)
     
+    #print(nk_fn_list)
     return nk_fn_list
 
 def calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle=0.0):
@@ -186,6 +183,8 @@ def calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle=0.0):
 
     for idx,wl in enumerate(wl_ar):
         n_list=calc_nk_list(nk_fn_list,wl) 
+        n_list[0]=n_env
+        #print(f"{wl}nm: n={n_list}")
         Rp_ar[idx]=tmm.coh_tmm('p', n_list, d_list, inc_angle_rad, wl)['R']
         if inc_angle<0.01:
             Rs_ar[idx]=Rp_ar[idx]
@@ -225,9 +224,7 @@ if value:
     wl_pitch=value
 
 st.sidebar.header('Atmosphere')
-value=st.sidebar.number_input('Refractive index (air:1.00)',min_value=1.0,max_value=3.0,value=1.0,step=0.01,format='%3.2f')
-if value:
-    n_env=value
+n_env=st.sidebar.number_input('Refractive index (air:1.00)',min_value=1.0,max_value=3.0,value=1.0,step=0.01,format='%3.2f')
 
 
 st.header('Interference color of multilayer film')
@@ -239,13 +236,14 @@ nk_namelist=get_nk_list()
 if len(nk_namelist)<1:
     st.error('nk list not find')
 
+
 nk_idx_subst=nk_namelist.index('Silicon')
 nk_idx_film=nk_namelist.index('SiO2')
 # print('nk list',nk_namelist)
 
 nk_name_list=[]
 d_list=[]
-nk_name_list.append(1)
+nk_name_list.append(n_env)
 d_list.append(np.Inf)
 
 for num in range(nlayers):
@@ -258,9 +256,26 @@ for num in range(nlayers):
         val=st.number_input('thickness[nm]',min_value=0.0,max_value=1e6,value=100.0,step=0.1,format='%g',key='T'+str(num+1))
         d_list.append(val)
 
-nk_name=st.selectbox('substrate',nk_namelist,index=nk_idx_subst,key='L0')
-nk_name_list.append(nk_name)
+nk_subst_name=st.selectbox('substrate',nk_namelist,index=nk_idx_subst,key='L0')
+nk_name_list.append(nk_subst_name)
 d_list.append(np.Inf)
+
+
+# with st.expander("Direct input for Expert user"):
+#     tmp_d_list=st.text_input("Thickness list (nm) ", d_list[1:-1])
+#     tmp_d_list=eval(tmp_d_list)
+#     if tmp_d_list!=d_list[1:-1]:
+#         d_list[1:-1]=tmp_d_list
+#         #st.write(d_list)
+#     tmp_nk_name_list=st.text_input("Material list", nk_name_list[1:-1])
+#     tmp_nk_name_list=eval(tmp_nk_name_list)
+#     if tmp_nk_name_list!=nk_name_list[1:-1]:
+#         nk_name_list=[]
+#         nk_name_list.append(n_env)
+#         nk_name_list.extend(tmp_nk_name_list)
+#         nk_name_list.append(nk_subst_name)
+#         st.write(nk_name_list)
+
 
 
 nk_fn_list=make_nk_fn(nk_name_list)
@@ -273,21 +288,49 @@ Rp,Rs=calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle)
 
 st.subheader('Spectrum')
 
-fig=plt.figure()
+
+fig = go.Figure()
+
 if inc_angle<0.01:
-    plt.plot(wl_ar, Rp, 'green')
-    title_msg=f'Reflection at {round(inc_angle,1)}$^\circ$ incidence, R(green)'
-    plt.legend(['R(nominal)'])
+    fig.add_trace(go.Scatter(
+        x=wl_ar, y=Rp,
+        name='R(nominal)',
+        mode='lines',
+        marker_color='rgba(0, 0, 0, .8)'
+    ))
 else:
-    plt.plot(wl_ar, Rp, 'red', wl_ar, Rs, 'blue',wl_ar,(Rp+Rs)/2.0,'green')
-    title_msg=f'Reflection at {round(inc_angle,1)}$^\circ$ incidence, Rp(red),Rs,(blue),Rn(green)'
-    plt.legend(['Rp','Rs','R(mean)'])    
+    fig.add_trace(go.Scatter(
+        x=wl_ar, y=Rp,
+        name='Rp',
+        mode='lines',
+        marker_color='rgba(255, 0, 0, .8)'
+    ))
+    fig.add_trace(go.Scatter(
+        x=wl_ar, y=Rs,
+        name='Rs',
+        mode='lines',
+        marker_color='rgba(0, 0, 255, .8)'
+    ))
+    fig.add_trace(go.Scatter(
+        x=wl_ar, y=(Rp+Rs)/2,
+        name='R(mean)',
+        mode='lines',
+        marker_color='rgba(0, 255, 0, .8)'
+    ))
 
-plt.xlabel('wavelength(nm)')
-plt.ylabel('Reflectance')
+# Set options common to all traces with fig.update_traces
+#fig.update_traces(mode='markers', marker_line_width=2, marker_size=10)
+title_msg=f'Reflection at {round(inc_angle,1)}[deg]'
+fig.update_layout(title=title_msg,
+                  yaxis_zeroline=True, xaxis_zeroline=True)
+#fig.update_layout(legend_title_text = "Contestant")
+fig.update_xaxes(title_text='Wavelength(nm)')
+fig.update_yaxes(title_text='Reflectance',range=[0, 1])
 
-plt.title(title_msg)
-st.pyplot(fig)
+
+st.plotly_chart(fig, use_container_width=True)
+
+
 
 st.subheader('Colorimetry')
 
