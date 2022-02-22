@@ -371,8 +371,9 @@ b_s=[]
 for v in RGB_s:
     b_s.append(np.clip(round(v*255),0,255))
 
-strRGB_p='#'+format(b_p[0], 'x')+format(b_p[1], 'x')+format(b_p[2], 'x')
-strRGB_s='#'+format(b_s[0], 'x')+format(b_s[1], 'x')+format(b_s[2], 'x')
+
+strRGB_p='#'+format(b_p[0], '02x')+format(b_p[1], '02x')+format(b_p[2], '02x')
+strRGB_s='#'+format(b_s[0], '02x')+format(b_s[1], '02x')+format(b_s[2], '02x')
 
 col1,col2=st.columns(2)
 with col1:
