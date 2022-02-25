@@ -22,18 +22,27 @@ st.set_page_config(
      }
  )
 
+calc_mode_menu=['Wavelength Scan','Incident angle Scan']
+calc_mode='Wavelength Scan'
+
 wl_min=400.0
 wl_max=800.0
-wl_pitch=1.0
+wl_pitch=5.0
+inc_angle=0.0
+
+inc_wl=600.0
+inc_angle_min=0.0
+inc_angle_max=70.0
+inc_angle_pitch=1.0
+
 
 n_env=1.0
-inc_angle=0.0
 nlayers=1
 
 nk_idx_subst=0
 nk_idx_film=0
 
-def order_n(i): return {1:"1st", 2:"2nd", 3:"3rd"}.get(i) or "%dth"%i
+def order_n(i): return {1:"1st (top)", 2:"2nd", 3:"3rd"}.get(i) or "%dth"%i
 
 @st.cache
 def convert_df(df):
@@ -183,7 +192,6 @@ def calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle=0.0):
 
     for idx,wl in enumerate(wl_ar):
         n_list=calc_nk_list(nk_fn_list,wl) 
-        n_list[0]=n_env
         #print(f"{wl}nm: n={n_list}")
         Rp_ar[idx]=tmm.coh_tmm('p', n_list, d_list, inc_angle_rad, wl)['R']
         if inc_angle<0.01:
@@ -193,35 +201,369 @@ def calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle=0.0):
 
     return (Rp_ar,Rs_ar)
 
+def calc_angle_reflectance(wl,nk_fn_list,d_list,angle_ar):
+    """
+    光学薄膜の反射率を計算
+    Parameters
+    ----------
+    wl : 波長(nm).
+    nk_fn_list : list of fn(wl)
+        光学定数関数のリスト.
+    d_list : array of float
+        各層の膜厚(nm).
+        単層膜: [np.inf, 300, np.inf]  # 最初の要素が媒質
+    angle_ar : array of float, 入射角の配列
+
+    Returns
+    -------
+    Rp_ar : array of float
+        Rp.
+    Rs_ar : array of float
+        Rs.
+
+    """
+    
+    Rp_ar=np.empty(len(angle_ar),dtype=float)
+    Rs_ar=np.empty(len(angle_ar),dtype=float)
+    n_list=calc_nk_list(nk_fn_list,wl)
+    #print(f"{wl}nm: n={n_list}")
+    for idx,inc_angle in enumerate(angle_ar):
+        inc_angle_rad=inc_angle/180.0*np.pi
+        Rp_ar[idx]=tmm.coh_tmm('p', n_list, d_list, inc_angle_rad, wl)['R']
+        if inc_angle<0.01:
+            Rs_ar[idx]=Rp_ar[idx]
+        else:
+            Rs_ar[idx]=tmm.coh_tmm('s', n_list, d_list, inc_angle_rad, wl)['R']
+
+    return (Rp_ar,Rs_ar)
+
+
+def disp_wavelength_scan():
+    """
+    
+    """
+    wl_ar=np.arange(wl_min,wl_max+wl_pitch,wl_pitch,dtype=float)
+    Rp=np.zeros(len(wl_ar),dtype=float)
+    Rs=np.zeros(len(wl_ar),dtype=float)
+
+    Rp,Rs=calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle)
+
+    st.subheader('Spectrum')
+
+
+    fig = go.Figure()
+
+    if inc_angle<0.01:
+        fig.add_trace(go.Scatter(
+            x=wl_ar, y=Rp,
+            name='R(nominal)',
+            mode='lines',
+            marker_color='rgba(0, 0, 0, .8)'
+        ))
+    else:
+        fig.add_trace(go.Scatter(
+            x=wl_ar, y=Rp,
+            name='Rp',
+            mode='lines',
+            marker_color='rgba(255, 0, 0, .8)'
+        ))
+        fig.add_trace(go.Scatter(
+            x=wl_ar, y=Rs,
+            name='Rs',
+            mode='lines',
+            marker_color='rgba(0, 0, 255, .8)'
+        ))
+        fig.add_trace(go.Scatter(
+            x=wl_ar, y=(Rp+Rs)/2,
+            name='R(mean)',
+            mode='lines',
+            marker_color='rgba(0, 255, 0, .8)'
+        ))
+
+    # Set options common to all traces with fig.update_traces
+    #fig.update_traces(mode='markers', marker_line_width=2, marker_size=10)
+    title_msg=f'Reflection at {round(inc_angle,1)}[deg]'
+    fig.update_layout(title=title_msg,
+                    yaxis_zeroline=True, xaxis_zeroline=True)
+    #fig.update_layout(legend_title_text = "Contestant")
+    fig.update_xaxes(title_text='Wavelength(nm)')
+    fig.update_yaxes(title_text='Reflectance',range=[0, 1])
+
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader('Colorimetry')
+
+    colour_wl_min=380
+    colour_wl_max=780
+    colour_wl_pitch=5
+    colour_wl_ar=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,wl_pitch,dtype=float)
+    if len(wl_ar)!=len(colour_wl_ar) or any(wl_ar!=colour_wl_ar):
+        colour_wl_ar=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch,dtype=float)
+        colour_Rp=np.zeros(len(wl_ar),dtype=float)
+        colour_Rs=np.zeros(len(wl_ar),dtype=float)
+        colour_Rp,colour_Rs=calc_reflectance(colour_wl_ar,nk_fn_list,d_list,inc_angle)
+    else:
+        colour_Rp,colour_Rs,colour_wl_ar=Rp,Rs,wl_ar
+
+    sd_p = colour.SpectralDistribution(colour_Rp, name='Sample Rp')    
+    sd_s = colour.SpectralDistribution(colour_Rs, name='Sample Rs')
+    sd_p.wavelengths=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch)
+    sd_s.wavelengths=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch)
+
+    # Convert to Tristimulus Values
+    cmfs = colour.colorimetry.MSDS_CMFS_STANDARD_OBSERVER['CIE 1931 2 Degree Standard Observer']
+    illuminant = colour.SDS_ILLUMINANTS['D65']
+
+    # Calculating the sample spectral distribution *CIE XYZ* tristimulus values.
+    XYZ_p = colour.sd_to_XYZ(sd_p, cmfs, illuminant)
+    XYZ_s = colour.sd_to_XYZ(sd_s, cmfs, illuminant)
+    RGB_p = colour.XYZ_to_sRGB(XYZ_p / 100)
+    RGB_s = colour.XYZ_to_sRGB(XYZ_s / 100)
+    b_p=[]
+    for v in RGB_p:
+        b_p.append(np.clip(round(v*255),0,255))
+    b_s=[]
+    for v in RGB_s:
+        b_s.append(np.clip(round(v*255),0,255))
+
+
+    strRGB_p='#'+format(b_p[0], '02x')+format(b_p[1], '02x')+format(b_p[2], '02x')
+    strRGB_s='#'+format(b_s[0], '02x')+format(b_s[1], '02x')+format(b_s[2], '02x')
+
+    col1,col2=st.columns(2)
+    with col1:
+        color_p = st.color_picker('Film colour (Rp)', strRGB_p,key='cp_Rp')
+        st.write('XYZ chromaticity',XYZ_p)
+    with col2:
+        color_s = st.color_picker('Film colour (Rs)', strRGB_s,key='cp_Rs')
+        st.write('XYZ chromaticity',XYZ_s)
+
+
+
+    nwl=len(wl_ar)
+    if inc_angle<0.01:
+        data=np.concatenate([wl_ar.reshape([nwl,1]),Rp.reshape([nwl,1])],1)
+        data_x=np.array([-1,-2,-3,-11,-12,-13]).reshape(6,1)
+        data_y=np.array([XYZ_p[0],XYZ_p[1],XYZ_p[2],RGB_p[0],RGB_p[1],RGB_p[2]]).reshape(6,1)
+        data_xy=np.concatenate([data_x,data_y],1)
+        data_all=np.concatenate([data_xy,data],0)
+    else:
+        data=np.concatenate([wl_ar.reshape([nwl,1]),Rp.reshape([nwl,1]),Rs.reshape([nwl,1])],1)
+        data_x=np.array([-1,-2,-3,-11,-12,-13]).reshape(6,1)
+        data_y=np.array([XYZ_p[0],XYZ_p[1],XYZ_p[2],RGB_p[0],RGB_p[1],RGB_p[2]]).reshape(6,1)
+        data_z=np.array([XYZ_p[0],XYZ_s[1],XYZ_s[2],RGB_s[0],RGB_s[1],RGB_s[2]]).reshape(6,1)
+        data_xyz=np.concatenate([data_x,data_y,data_z],1)
+        data_all=np.concatenate([data_xyz,data],0)
+
+    df=pd.DataFrame(data_all)
+    if inc_angle<0.01:
+        df.columns = ['Wavelength(nm)', 'R']
+    else:
+        df.columns = ['Wavelength(nm)', 'Rp', 'Rs']
+
+    df.set_index('Wavelength(nm)')
+
+    #st.write(df)
+    #np.savetxt(".\\data\\temp\\data.csv",data,fmt='%.5f',delimiter=',') 
+
+    csv = convert_df(df)
+
+    t_delta = datetime.timedelta(hours=9)
+    JST = datetime.timezone(t_delta, 'JST')
+    now = datetime.datetime.now(JST)
+    # YYYYMMDDhhmmss形式に書式化
+    d = now.strftime('%Y%m%d%H%M%S')
+    fname='data_'+d+'.csv'
+
+    st.subheader('Download spectrum and color data')
+
+    st.download_button(
+        label="Download data as CSV",
+        data=csv,
+        file_name=fname,
+        mime='text/csv',
+    )
+
+
+def disp_angle_scan():
+    """
+    inc_wl=600.0
+    inc_angle_min=0.0
+    inc_angle_max=80.0
+    inc_angle_pitch=1.0
+
+    """
+    angle_ar=np.arange(inc_angle_min,inc_angle_max+inc_angle_pitch,inc_angle_pitch,dtype=float)
+    Rp=np.zeros(len(angle_ar),dtype=float)
+    Rs=np.zeros(len(angle_ar),dtype=float)
+
+    Rp,Rs=calc_angle_reflectance(inc_wl,nk_fn_list,d_list,angle_ar)
+
+    st.subheader('Reflectance at each incident angle')
+
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=angle_ar, y=Rp,
+        name='Rp',
+        mode='lines',
+        marker_color='rgba(255, 0, 0, .8)'
+    ))
+    fig.add_trace(go.Scatter(
+        x=angle_ar, y=Rs,
+        name='Rs',
+        mode='lines',
+        marker_color='rgba(0, 0, 255, .8)'
+    ))
+    fig.add_trace(go.Scatter(
+        x=angle_ar, y=Rp/Rs,
+        name='Rp/Rs',
+        mode='lines',
+        marker_color='rgba(0, 255, 0, .8)'
+    ))
+
+    # Set options common to all traces with fig.update_traces
+    #fig.update_traces(mode='markers', marker_line_width=2, marker_size=10)
+    title_msg=f'Reflection at {round(inc_wl,1)}[nm]'
+    fig.update_layout(title=title_msg,
+                    yaxis_zeroline=True, xaxis_zeroline=True)
+    #fig.update_layout(legend_title_text = "Contestant")
+    fig.update_xaxes(title_text='Incident angle [deg]')
+    fig.update_yaxes(title_text='Reflectance',range=[0, 1])
+
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader('Colorimetry')
+
+
+    colour_wl_min=380
+    colour_wl_max=780
+    colour_wl_pitch=5
+
+    colour_wl_ar=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch,dtype=float)
+    inc_angle_ar=np.linspace(inc_angle_min,inc_angle_max,11,dtype=float)
+
+
+    for idx,inc_angle in enumerate(inc_angle_ar):
+        colour_Rp,colour_Rs=calc_reflectance(colour_wl_ar,nk_fn_list,d_list,inc_angle)
+        colour_Rm=(colour_Rp+colour_Rs)/2.0
+        sd_p = colour.SpectralDistribution(colour_Rp, name=f'Sample Rp{idx}')    
+        sd_s = colour.SpectralDistribution(colour_Rs, name=f'Sample Rs{idx}')
+        sd_m = colour.SpectralDistribution(colour_Rm, name=f'Sample Rm{idx}')
+        sd_p.wavelengths=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch)
+        sd_s.wavelengths=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch)
+        sd_m.wavelengths=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch)
+
+        # Convert to Tristimulus Values
+        cmfs = colour.colorimetry.MSDS_CMFS_STANDARD_OBSERVER['CIE 1931 2 Degree Standard Observer']
+        illuminant = colour.SDS_ILLUMINANTS['D65']
+
+        # Calculating the sample spectral distribution *CIE XYZ* tristimulus values.
+        XYZ_p = colour.sd_to_XYZ(sd_p, cmfs, illuminant)
+        XYZ_s = colour.sd_to_XYZ(sd_s, cmfs, illuminant)
+        XYZ_m = colour.sd_to_XYZ(sd_m, cmfs, illuminant)
+        RGB_p = colour.XYZ_to_sRGB(XYZ_p / 100)
+        RGB_s = colour.XYZ_to_sRGB(XYZ_s / 100)
+        RGB_m = colour.XYZ_to_sRGB(XYZ_m / 100)
+        b_p=[]
+        for v in RGB_p:
+            b_p.append(np.clip(round(v*255),0,255))
+        b_s=[]
+        for v in RGB_s:
+            b_s.append(np.clip(round(v*255),0,255))
+        b_m=[]
+        for v in RGB_m:
+            b_m.append(np.clip(round(v*255),0,255))
+
+        strRGB_p='#'+format(b_p[0], '02x')+format(b_p[1], '02x')+format(b_p[2], '02x')
+        strRGB_s='#'+format(b_s[0], '02x')+format(b_s[1], '02x')+format(b_s[2], '02x')
+        strRGB_m='#'+format(b_m[0], '02x')+format(b_m[1], '02x')+format(b_m[2], '02x')
+
+
+        col1,col2,col3=st.columns(3)
+        with col1:
+            color_p = st.color_picker(f'Rp@{inc_angle:.2f}[deg]', strRGB_p,key=f'cp_Rp{idx}')
+        with col2:
+            color_s = st.color_picker(f'Rs@{inc_angle:.2f}[deg]', strRGB_s,key=f'cp_Rs{idx}')
+        with col3:
+            color_m = st.color_picker(f'R(mean)@{inc_angle:.2f}[deg]', strRGB_m,key=f'cp_Rm{idx}')
+
+
+
+    nangle=len(angle_ar)
+    data=np.concatenate([angle_ar.reshape([nangle,1]),Rp.reshape([nangle,1]),Rs.reshape([nangle,1])],1)
+    
+    df=pd.DataFrame(data)
+    df.columns = ['Angle(deg)', 'Rp', 'Rs']
+
+    df.set_index('Angle(deg)')
+
+    # #st.write(df)
+    # #np.savetxt(".\\data\\temp\\data.csv",data,fmt='%.5f',delimiter=',') 
+
+    csv = convert_df(df)
+
+    t_delta = datetime.timedelta(hours=9)
+    JST = datetime.timezone(t_delta, 'JST')
+    now = datetime.datetime.now(JST)
+    # YYYYMMDDhhmmss形式に書式化
+    d = now.strftime('%Y%m%d%H%M%S')
+    fname='data_'+d+'.csv'
+
+    st.subheader('Download reflectance data')
+
+    st.download_button(
+        label="Download data as CSV",
+        data=csv,
+        file_name=fname,
+        mime='text/csv',
+    )
+
+
+
+
+
 
 
 st.title('Optical film simulator')
 
 st.sidebar.header('Light parameters')
 
+calc_mode=st.sidebar.radio("Calculation mode",calc_mode_menu)
+
+if calc_mode=='Wavelength Scan':
+
+    inc_angle=st.sidebar.number_input('Angle of Incidence [deg]',min_value=0.0,max_value=89.0,value=0.0,step=0.1,format='%3.1f')
+    wl_option=st.sidebar.selectbox('Wavelength(nm)',('Visible','All'))
+    if wl_option=='Visible':
+        wl_min=380.0
+        wl_max=780.0
+        wl_pitch=5.0
+    elif wl_option=='All':
+        wl_min=200.0
+        wl_max=1000.0
+        wl_pitch=1.0    
+
+    wl_range=st.sidebar.slider('Wavelength range [nm]',min_value=200.0,max_value=1000.0,value=(wl_min,wl_max),step=10.0,format='%.0f')
+    if wl_range:
+        wl_min=wl_range[0]
+        wl_max=wl_range[1]
 
 
+    value=st.sidebar.number_input('Wavelength pitch [nm]',min_value=0.1,max_value=10.0,value=wl_pitch,step=0.1,format='%3.1f')
+    if value:
+        wl_pitch=value
+else:
+    inc_wl=st.sidebar.number_input('Wavelength(nm)',min_value=0.0,max_value=1000.0,value=inc_wl,step=0.1,format='%3.1f')
+    inc_angle_range=st.sidebar.slider('Incident angle range [deg]',min_value=0.0,max_value=85.0,value=(inc_angle_min,inc_angle_max),step=5.0,format='%.0f')
+    if inc_angle_range:
+        inc_angle_min=inc_angle_range[0]
+        inc_angle_max=inc_angle_range[1]
+    inc_angle_pitch=st.sidebar.number_input('Angle pitch [deg]',min_value=0.01,max_value=15.0,value=inc_angle_pitch,step=0.01,format='%3.2f')
 
-inc_angle=st.sidebar.number_input('Incident angle [deg]',min_value=0.0,max_value=89.0,value=0.0,step=0.1,format='%3.1f')
-wl_option=st.sidebar.selectbox('Wavelength(nm)',('Visible','All'))
-if wl_option=='Visible':
-    wl_min=380.0
-    wl_max=780.0
-    wl_pitch=5.0
-elif wl_option=='All':
-    wl_min=200.0
-    wl_max=1000.0
-    wl_pitch=1.0    
-
-wl_range=st.sidebar.slider('Wavelength range [nm]',min_value=200.0,max_value=1000.0,value=(wl_min,wl_max),step=1.0,format='%.0f')
-if wl_range:
-    wl_min=wl_range[0]
-    wl_max=wl_range[1]
-
-
-value=st.sidebar.number_input('Wavelength pitch [nm]',min_value=0.1,max_value=10.0,value=wl_pitch,step=0.1,format='%3.1f')
-if value:
-    wl_pitch=value
 
 st.sidebar.header('Atmosphere')
 n_env=st.sidebar.number_input('Refractive index (air:1.00)',min_value=1.0,max_value=3.0,value=1.0,step=0.01,format='%3.2f')
@@ -280,151 +622,9 @@ d_list.append(np.Inf)
 
 nk_fn_list=make_nk_fn(nk_name_list)
 
-wl_ar=np.arange(wl_min,wl_max+wl_pitch,wl_pitch,dtype=float)
-Rp=np.zeros(len(wl_ar),dtype=float)
-Rs=np.zeros(len(wl_ar),dtype=float)
-
-Rp,Rs=calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle)
-
-st.subheader('Spectrum')
-
-
-fig = go.Figure()
-
-if inc_angle<0.01:
-    fig.add_trace(go.Scatter(
-        x=wl_ar, y=Rp,
-        name='R(nominal)',
-        mode='lines',
-        marker_color='rgba(0, 0, 0, .8)'
-    ))
+if calc_mode=='Wavelength Scan':
+    disp_wavelength_scan()
 else:
-    fig.add_trace(go.Scatter(
-        x=wl_ar, y=Rp,
-        name='Rp',
-        mode='lines',
-        marker_color='rgba(255, 0, 0, .8)'
-    ))
-    fig.add_trace(go.Scatter(
-        x=wl_ar, y=Rs,
-        name='Rs',
-        mode='lines',
-        marker_color='rgba(0, 0, 255, .8)'
-    ))
-    fig.add_trace(go.Scatter(
-        x=wl_ar, y=(Rp+Rs)/2,
-        name='R(mean)',
-        mode='lines',
-        marker_color='rgba(0, 255, 0, .8)'
-    ))
-
-# Set options common to all traces with fig.update_traces
-#fig.update_traces(mode='markers', marker_line_width=2, marker_size=10)
-title_msg=f'Reflection at {round(inc_angle,1)}[deg]'
-fig.update_layout(title=title_msg,
-                  yaxis_zeroline=True, xaxis_zeroline=True)
-#fig.update_layout(legend_title_text = "Contestant")
-fig.update_xaxes(title_text='Wavelength(nm)')
-fig.update_yaxes(title_text='Reflectance',range=[0, 1])
+    disp_angle_scan()
 
 
-st.plotly_chart(fig, use_container_width=True)
-
-
-
-st.subheader('Colorimetry')
-
-
-colour_wl_min=380
-colour_wl_max=780
-colour_wl_pitch=5
-colour_wl_ar=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,wl_pitch,dtype=float)
-if len(wl_ar)!=len(colour_wl_ar) or any(wl_ar!=colour_wl_ar):
-    colour_wl_ar=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch,dtype=float)
-    colour_Rp=np.zeros(len(wl_ar),dtype=float)
-    colour_Rs=np.zeros(len(wl_ar),dtype=float)
-    colour_Rp,colour_Rs=calc_reflectance(colour_wl_ar,nk_fn_list,d_list,inc_angle)
-else:
-    colour_Rp,colour_Rs,colour_wl_ar=Rp,Rs,wl_ar
-
-
-sd_p = colour.SpectralDistribution(colour_Rp, name='Sample Rp')    
-sd_s = colour.SpectralDistribution(colour_Rs, name='Sample Rs')
-sd_p.wavelengths=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch)
-sd_s.wavelengths=np.arange(colour_wl_min,colour_wl_max+colour_wl_pitch,colour_wl_pitch)
-
-
-
-# Convert to Tristimulus Values
-cmfs = colour.STANDARD_OBSERVERS_CMFS['CIE 1931 2 Degree Standard Observer']
-illuminant = colour.ILLUMINANTS_SDS['D65']
-
-# Calculating the sample spectral distribution *CIE XYZ* tristimulus values.
-XYZ_p = colour.sd_to_XYZ(sd_p, cmfs, illuminant)
-XYZ_s = colour.sd_to_XYZ(sd_s, cmfs, illuminant)
-RGB_p = colour.XYZ_to_sRGB(XYZ_p / 100)
-RGB_s = colour.XYZ_to_sRGB(XYZ_s / 100)
-b_p=[]
-for v in RGB_p:
-    b_p.append(np.clip(round(v*255),0,255))
-b_s=[]
-for v in RGB_s:
-    b_s.append(np.clip(round(v*255),0,255))
-
-
-strRGB_p='#'+format(b_p[0], '02x')+format(b_p[1], '02x')+format(b_p[2], '02x')
-strRGB_s='#'+format(b_s[0], '02x')+format(b_s[1], '02x')+format(b_s[2], '02x')
-
-col1,col2=st.columns(2)
-with col1:
-    color_p = st.color_picker('Film colour (Rp)', strRGB_p,key='cp_Rp')
-    st.write('XYZ chromaticity',XYZ_p)
-with col2:
-    color_s = st.color_picker('Film colour (Rs)', strRGB_s,key='cp_Rs')
-    st.write('XYZ chromaticity',XYZ_s)
-
-
-
-nwl=len(wl_ar)
-if inc_angle<0.01:
-    data=np.concatenate([wl_ar.reshape([nwl,1]),Rp.reshape([nwl,1])],1)
-    data_x=np.array([-1,-2,-3,-11,-12,-13]).reshape(6,1)
-    data_y=np.array([XYZ_p[0],XYZ_p[1],XYZ_p[2],RGB_p[0],RGB_p[1],RGB_p[2]]).reshape(6,1)
-    data_xy=np.concatenate([data_x,data_y],1)
-    data_all=np.concatenate([data_xy,data],0)
-else:
-    data=np.concatenate([wl_ar.reshape([nwl,1]),Rp.reshape([nwl,1]),Rs.reshape([nwl,1])],1)
-    data_x=np.array([-1,-2,-3,-11,-12,-13]).reshape(6,1)
-    data_y=np.array([XYZ_p[0],XYZ_p[1],XYZ_p[2],RGB_p[0],RGB_p[1],RGB_p[2]]).reshape(6,1)
-    data_z=np.array([XYZ_p[0],XYZ_s[1],XYZ_s[2],RGB_s[0],RGB_s[1],RGB_s[2]]).reshape(6,1)
-    data_xyz=np.concatenate([data_x,data_y,data_z],1)
-    data_all=np.concatenate([data_xyz,data],0)
-
-df=pd.DataFrame(data_all)
-if inc_angle<0.01:
-    df.columns = ['Wavelength(nm)', 'R']
-else:
-    df.columns = ['Wavelength(nm)', 'Rp', 'Rs']
-
-df.set_index('Wavelength(nm)')
-
-#st.write(df)
-#np.savetxt(".\\data\\temp\\data.csv",data,fmt='%.5f',delimiter=',') 
-
-csv = convert_df(df)
-
-t_delta = datetime.timedelta(hours=9)
-JST = datetime.timezone(t_delta, 'JST')
-now = datetime.datetime.now(JST)
-# YYYYMMDDhhmmss形式に書式化
-d = now.strftime('%Y%m%d%H%M%S')
-fname='data_'+d+'.csv'
-
-st.subheader('Download spectrum and color data')
-
-st.download_button(
-     label="Download data as CSV",
-     data=csv,
-     file_name=fname,
-     mime='text/csv',
- )
