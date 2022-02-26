@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import tmm
 import colour
 import os
+import time
 import datetime
 import glob
 
@@ -16,8 +17,8 @@ st.set_page_config(
      layout="wide",
      initial_sidebar_state="auto",
      menu_items={
-         'Get Help': 'https://koumyou.org/',
-         'Report a bug': "https://koumyou.org/",
+         'Get Help': 'https://koumyou.org/optical-film-simulator/',
+         'Report a bug': "https://koumyou.org/optical-film-simulator/",
          'About': "# This is an optical film sumulator app!"
      }
  )
@@ -41,6 +42,17 @@ nlayers=1
 
 nk_idx_subst=0
 nk_idx_film=0
+
+
+def tictoc(func):
+    def _wrapper(*args,**keywargs):
+        start_time=time.time()
+        result=func(*args,**keywargs)
+        print('time: {:.9f} [sec]'.format(time.time()-start_time))
+        return result
+    return _wrapper
+
+
 
 def order_n(i): return {1:"1st (top)", 2:"2nd", 3:"3rd"}.get(i) or "%dth"%i
 
@@ -82,6 +94,7 @@ def get_nk_list():
 
     nk_list.sort()
     return nk_list
+
 
 def calc_nk_list(nk_fn_list,wl):
     """
@@ -162,6 +175,7 @@ def make_nk_fn(nk_name_list=[]):
     #print(nk_fn_list)
     return nk_fn_list
 
+
 def calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle=0.0):
     """
     光学薄膜の反射率を計算
@@ -188,18 +202,19 @@ def calc_reflectance(wl_ar,nk_fn_list,d_list,inc_angle=0.0):
     
     Rp_ar=np.empty(len(wl_ar),dtype=float)
     Rs_ar=np.empty(len(wl_ar),dtype=float)
-    inc_angle_rad=inc_angle/180.0*np.pi
+    inc_angle_rad=float(inc_angle/180.0*np.pi)
 
     for idx,wl in enumerate(wl_ar):
-        n_list=calc_nk_list(nk_fn_list,wl) 
+        n_list=calc_nk_list(nk_fn_list,float(wl)) 
         #print(f"{wl}nm: n={n_list}")
-        Rp_ar[idx]=tmm.coh_tmm('p', n_list, d_list, inc_angle_rad, wl)['R']
+        Rp_ar[idx]=tmm.coh_tmm('p', n_list, d_list, inc_angle_rad, float(wl))['R']
         if inc_angle<0.01:
             Rs_ar[idx]=Rp_ar[idx]
         else:
             Rs_ar[idx]=tmm.coh_tmm('s', n_list, d_list, inc_angle_rad, wl)['R']
-
+            
     return (Rp_ar,Rs_ar)
+
 
 def calc_angle_reflectance(wl,nk_fn_list,d_list,angle_ar):
     """
@@ -225,7 +240,7 @@ def calc_angle_reflectance(wl,nk_fn_list,d_list,angle_ar):
     
     Rp_ar=np.empty(len(angle_ar),dtype=float)
     Rs_ar=np.empty(len(angle_ar),dtype=float)
-    n_list=calc_nk_list(nk_fn_list,wl)
+    n_list=calc_nk_list(nk_fn_list,float(wl))
     #print(f"{wl}nm: n={n_list}")
     for idx,inc_angle in enumerate(angle_ar):
         inc_angle_rad=inc_angle/180.0*np.pi
@@ -362,7 +377,7 @@ def disp_wavelength_scan():
     else:
         df.columns = ['Wavelength(nm)', 'Rp', 'Rs']
 
-    df.set_index('Wavelength(nm)')
+    df=df.set_index('Wavelength(nm)')
 
     #st.write(df)
     #np.savetxt(".\\data\\temp\\data.csv",data,fmt='%.5f',delimiter=',') 
@@ -499,7 +514,7 @@ def disp_angle_scan():
     df=pd.DataFrame(data)
     df.columns = ['Angle(deg)', 'Rp', 'Rs']
 
-    df.set_index('Angle(deg)')
+    df=df.set_index('Angle(deg)')
 
     # #st.write(df)
     # #np.savetxt(".\\data\\temp\\data.csv",data,fmt='%.5f',delimiter=',') 
@@ -537,25 +552,32 @@ calc_mode=st.sidebar.radio("Calculation mode",calc_mode_menu)
 if calc_mode=='Wavelength Scan':
 
     inc_angle=st.sidebar.number_input('Angle of Incidence [deg]',min_value=0.0,max_value=89.0,value=0.0,step=0.1,format='%3.1f')
-    wl_option=st.sidebar.selectbox('Wavelength(nm)',('Visible','All'))
-    if wl_option=='Visible':
+    spMenu=('Visible[380-780nm]','UV[200-400nm]','NIR[700-1000nm]','All[200-1000nm]','Any')
+    wl_option=st.sidebar.selectbox('Spetrum range',spMenu)
+    if wl_option==spMenu[0]:
         wl_min=380.0
         wl_max=780.0
         wl_pitch=5.0
-    elif wl_option=='All':
+    elif wl_option==spMenu[1]:
+        wl_min=200.0
+        wl_max=400.0
+        wl_pitch=0.5
+    elif wl_option==spMenu[2]:
+        wl_min=700.0
+        wl_max=1000.0
+        wl_pitch=2.0
+    elif wl_option==spMenu[3]:
         wl_min=200.0
         wl_max=1000.0
-        wl_pitch=1.0    
+        wl_pitch=1.0
 
-    wl_range=st.sidebar.slider('Wavelength range [nm]',min_value=200.0,max_value=1000.0,value=(wl_min,wl_max),step=10.0,format='%.0f')
-    if wl_range:
-        wl_min=wl_range[0]
-        wl_max=wl_range[1]
+    if wl_option==spMenu[4]:
+        wl_range=st.sidebar.slider('Wavelength range [nm]',min_value=200.0,max_value=1000.0,value=(wl_min,wl_max),step=20.0,format='%.0f')
+        if wl_range:
+            wl_min=wl_range[0]
+            wl_max=wl_range[1]
+        wl_pitch=st.sidebar.number_input('Wavelength pitch [nm]',min_value=0.1,max_value=10.0,value=wl_pitch,step=0.1,format='%3.1f')
 
-
-    value=st.sidebar.number_input('Wavelength pitch [nm]',min_value=0.1,max_value=10.0,value=wl_pitch,step=0.1,format='%3.1f')
-    if value:
-        wl_pitch=value
 else:
     inc_wl=st.sidebar.number_input('Wavelength(nm)',min_value=0.0,max_value=1000.0,value=inc_wl,step=0.1,format='%3.1f')
     inc_angle_range=st.sidebar.slider('Incident angle range [deg]',min_value=0.0,max_value=85.0,value=(inc_angle_min,inc_angle_max),step=5.0,format='%.0f')
